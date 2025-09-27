@@ -127,3 +127,19 @@ antithesis-run duration='120': antithesis-prep
         --image='{{MINIO_ANTITHESIS_TAG}}' \
         --duration={{duration}} \
         --email='antithesis-results@orbitinghail.dev'
+
+setup-codespace:
+    #!/usr/bin/env bash
+    set -eux
+    sudo apt-get update
+    sudo apt-get install -y clang llvm mold
+    if ! command -v rustup >/dev/null 2>&1; then
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        source "$HOME/.cargo/env"
+    fi
+    rustup toolchain install stable
+    rustup default stable
+    cargo install cargo-nextest --locked
+    if ! command -v just >/dev/null 2>&1; then
+        cargo install just --locked
+    fi
