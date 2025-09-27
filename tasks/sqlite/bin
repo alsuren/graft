@@ -26,13 +26,36 @@ SQLITE_SRC_URL="https://www.sqlite.org/${SQLITE_YEAR}/sqlite-autoconf-${SQLITE_V
 SQLITE_DIR="${GIT_ROOT}/target/sqlite-${SQLITE_VERSION}"
 SQLITE_BIN="${SQLITE_DIR}/sqlite3"
 
+# Try to use system sqlite3 if network download fails or if SQLITE_USE_SYSTEM is set
+if [[ -n "${SQLITE_USE_SYSTEM-}" ]] || [[ -n "${SKIP_NETWORK_DEPS-}" ]]; then
+    if command -v sqlite3 >/dev/null 2>&1; then
+        echo "Using system sqlite3: $(sqlite3 --version)"
+        exec sqlite3 "$@"
+    else
+        echo "System sqlite3 not found and network dependencies disabled"
+        exit 1
+    fi
+fi
+
 # install sqlite3 into ${GIT_ROOT}/target/sqlite3/
 # if it's not already installed
 if [ ! -f "${SQLITE_BIN}" ]; then
   echo "Downloading sqlite3 from ${SQLITE_SRC_URL} into ${SQLITE_DIR}"
   mkdir -p "${SQLITE_DIR}"
   SQLITE_TAR="$(mktemp -d)/sqlite3.tar.gz"
-  curl -L -o "${SQLITE_TAR}" "${SQLITE_SRC_URL}"
+  
+  # Try to download, fall back to system sqlite3 if network fails
+  if ! curl -L -o "${SQLITE_TAR}" "${SQLITE_SRC_URL}" 2>/dev/null; then
+    echo "Network download failed, trying system sqlite3..."
+    if command -v sqlite3 >/dev/null 2>&1; then
+        echo "Using system sqlite3: $(sqlite3 --version)"
+        exec sqlite3 "$@"
+    else
+        echo "Neither network download nor system sqlite3 available"
+        exit 1
+    fi
+  fi
+  
   tar -C "${SQLITE_DIR}" -xzf "${SQLITE_TAR}"
   rm "${SQLITE_TAR}"
   cd "${SQLITE_DIR}/sqlite-autoconf-${SQLITE_VERSION}"

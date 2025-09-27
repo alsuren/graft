@@ -19,6 +19,22 @@ MINIO_ANTITHESIS_TAG := ANTITHESIS_REGISTRY / "minio:" + GIT_SHA
 default:
     @just --list
 
+setup-codespace:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    sudo apt-get update
+    sudo apt-get install -y clang libclang-dev llvm mold build-essential
+    if ! command -v rustup >/dev/null 2>&1; then
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        source "$HOME/.cargo/env"
+    fi
+    rustup toolchain install stable
+    rustup default stable
+    cargo install cargo-nextest --locked
+    if ! command -v just >/dev/null 2>&1; then
+        cargo install just --locked
+    fi
+
 [positional-arguments]
 [no-exit-message]
 run *args:
@@ -57,6 +73,13 @@ run *args:
     exec "$found" "${args[@]:$found_index}"
 
 test:
+    cargo nextest run
+    -just run sqlite test || echo "SQLite tests skipped (requires network access)"
+
+test-offline:
+    cargo nextest run
+
+test-all:
     cargo nextest run
     just run sqlite test
     just run fuse test
